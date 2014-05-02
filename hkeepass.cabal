@@ -20,3 +20,4 @@ executable hkeepass
   -- other-modules:       
   build-depends:       base ==4.6.*
   build-depends:       bytestring ==0.10.*
+  build-depends:       binary-strict

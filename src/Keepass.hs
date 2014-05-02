@@ -19,6 +19,10 @@ type KEntry = (String, String)
 data KMeta = KMeta deriving (Show)
 data KDBUnlocked = KDBUnlocked KMeta [KGroup] [KEntry] deriving (Show)
 
+type KGroup = [KGroupLine]
+data KGroupLine = KID Int
+                | KTitle String deriving (Show)
+
 type KDBLength = Int
 type KBody = BS.ByteString
 data KDBLocked = KDBLocked KDBLength KHeader KBody deriving (Show)
@@ -35,9 +39,7 @@ data KHeader = KHeader {
   , getSeedRotN :: Word32
 } deriving (Show)
 
-type ParseEither a = Either String a
-
-loadKdb :: BS.ByteString -> ParseEither KDBLocked
+loadKdb :: BS.ByteString -> Either String KDBLocked
 loadKdb content = do
     let (header, body) = BS.splitAt kdbHeaderSize content
     header' <- parseHeader header
@@ -54,7 +56,7 @@ kdbSig2v2 = 0xB54BFB67
 kdbVerDw  = 0x00030002
 kdbFlagRijndael  = 2
 
-parseHeader :: BS.ByteString -> ParseEither KHeader
+parseHeader :: BS.ByteString -> Either String KHeader
 parseHeader header = do
     when (BS.length header < kdbHeaderSize) $
         fail "truncated header"
@@ -118,9 +120,6 @@ parse kheader body = do
     groups' <- groups
     return $ KDBUnlocked KMeta groups' []
 
-type KGroup = [KGroupLine]
-data KGroupLine = KID Int | KTitle String deriving (Show)
-
 parseGroups :: Int -> BG.Get [KGroup]
 parseGroups ngroups = parseGroups' ngroups []
 
@@ -132,9 +131,7 @@ parseGroups' ngroups group = do
         kint <- BG.lookAhead BG.getWord32le
         kdata <- BG.getByteString $ fromIntegral size
         case ktype of
-            0xffff -> do
-                rest <- parseGroups (ngroups - 1)
-                return $ group : rest
+            0xffff -> (group:) <$> parseGroups (ngroups - 1)
             2 -> parseGroups' ngroups $ KTitle (C8.unpack kdata) : group
             1 -> parseGroups' ngroups $ KID (fromIntegral kint) : group
             _ -> parseGroups' ngroups group  -- skip

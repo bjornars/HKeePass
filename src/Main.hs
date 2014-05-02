@@ -29,7 +29,7 @@ unlockAndSearch kdb = do
 
     case decode kdb pw of
         (Left msg) -> putStrLn ("Error: " ++ msg) >> unlockAndSearch kdb
-        (Right kdb') -> putStrLn "\ndecoding successful" >> search kdb'
+        (Right kdb') -> putStrLn "\ndecoding successful" >> print kdb' >> search kdb'
 
 search :: KDBUnlocked -> IO ()
 search kdb = return ()

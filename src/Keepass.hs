@@ -1,6 +1,7 @@
 module Keepass where
 
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as C8
 import qualified Data.Binary.Strict.Get as BG
 
 import Data.Bits
@@ -9,11 +10,14 @@ import Data.Word
 import Control.Applicative
 import Control.Monad
 
+import qualified Crypto.Cipher.AES as AES
+import qualified Crypto.Hash.SHA256 as SHA
+
 type KPassword = String
 
 type KEntry = (String, String)
 data KMeta = KMeta deriving (Show)
-data KDBUnlocked = KDBUnlocked KMeta [KEntry] deriving (Show)
+data KDBUnlocked = KDBUnlocked KMeta [KGroup] [KEntry] deriving (Show)
 
 type KDBLength = Int
 type KBody = BS.ByteString
@@ -88,4 +92,49 @@ readHeader = KHeader <$>
 
 -- decoding
 decode :: KDBLocked -> KPassword -> Either String KDBUnlocked
-decode kdb password = Right $ KDBUnlocked KMeta []
+decode (KDBLocked _ kheader body) password =
+    let decrypted = tafse kheader body password in
+    if SHA.hash decrypted == getChecksum kheader then
+        parse kheader decrypted
+    else
+        Left "wrong password"
+
+tafse :: KHeader -> BS.ByteString -> KPassword -> BS.ByteString
+tafse kheader body password = unpad paddedBody
+    where cipher = AES.initAES $ getSeedKey kheader
+          pre_key = SHA.hash $ C8.pack password
+          iterations = fromIntegral (getSeedRotN kheader) :: Int
+          key = iterate (AES.encryptECB cipher) pre_key !! iterations
+          key2 = SHA.hash key
+          key3 = SHA.hash $ getSeedRand kheader `BS.append` key2
+          cipher2 = AES.initAES key3
+          paddedBody = AES.decryptCBC cipher2 (getEncIv kheader) body
+          unpad xs = BS.take (BS.length xs - fromIntegral (BS.last xs)) xs
+
+parse :: KHeader -> BS.ByteString -> Either String KDBUnlocked
+parse kheader body = do
+    let ngroups = fromIntegral $ getNGroups kheader
+    let (groups, _) = BG.runGet (parseGroups ngroups) body
+    groups' <- groups
+    return $ KDBUnlocked KMeta groups' []
+
+type KGroup = [KGroupLine]
+data KGroupLine = KID Int | KTitle String deriving (Show)
+
+parseGroups :: Int -> BG.Get [KGroup]
+parseGroups ngroups = parseGroups' ngroups []
+
+parseGroups' :: Int -> [KGroupLine] -> BG.Get [KGroup]
+parseGroups' 0 _ = return []
+parseGroups' ngroups group = do
+        ktype <- BG.getWord16le
+        size <- BG.getWord32le
+        kint <- BG.lookAhead BG.getWord32le
+        kdata <- BG.getByteString $ fromIntegral size
+        case ktype of
+            0xffff -> do
+                rest <- parseGroups (ngroups - 1)
+                return $ group : rest
+            2 -> parseGroups' ngroups $ KTitle (C8.unpack kdata) : group
+            1 -> parseGroups' ngroups $ KID (fromIntegral kint) : group
+            _ -> parseGroups' ngroups group  -- skip

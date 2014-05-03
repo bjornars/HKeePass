@@ -179,26 +179,37 @@ entry `entryContains` s =  s' `isInfixOf` entry'
           s' = lowercase s
           lowercase = map toLower
 
--- this crap down here is a mess of partial functions
+safeHead :: [a] -> Maybe a
+safeHead [] = Nothing
+safeHead (x:_) = Just x
+
+showLine :: (String, Maybe String) -> String
+showLine (_, Nothing) = ""
+showLine (label, Just content) = pad 20 label ++ content ++ "\n"
+
+pad :: Int -> String -> String
+pad n label = take n $ label ++ ":" ++ replicate n ' '
+
 displayEntry :: [KGroup] -> KEntry -> String
 displayEntry kgroups entry =
-    "Title:          " ++ title ++ "\n" ++
-    "Group:          " ++ groupTitle kgroups kgid  ++ "\n" ++
-    "URL:            " ++ url ++ "\n" ++
-    "Username:       " ++ username ++ "\n" ++
-    "Password:       " ++ password ++ "\n" ++
-    "Comment :       " ++ comment ++ "\n" ++
-    replicate 50 '-' ++ "\n"
-    where username = head [x | KEUsername x <- entry]
-          password = head [x | KEPassword x <- entry]
-          title = head [x | KETitle x <- entry]
-          url = head [x | KEUrl x <- entry]
-          comment = head [x | KEComment x <- entry]
-          kgid = head [x | KEGroupId x <- entry]
+    concatMap showLine entries ++ replicate 50 '-' ++ "\n"
+    where username = safeHead [x | KEUsername x <- entry]
+          password = safeHead [x | KEPassword x <- entry]
+          title = safeHead [x | KETitle x <- entry]
+          url = safeHead [x | KEUrl x <- entry]
+          comment = safeHead [x | KEComment x <- entry]
+          kgid = safeHead [x | KEGroupId x <- entry]
+          entries = [("Title", title),
+                     ("Group", groupTitle kgroups kgid),
+                     ("URL", url),
+                     ("Username", username),
+                     ("Password", password),
+                     ("Comment", comment)]
 
-groupTitle :: [[KGroupLine]] -> Int -> String
-groupTitle groups gid = title
+groupTitle :: [[KGroupLine]] -> Maybe Int -> Maybe String
+groupTitle _      Nothing    = Nothing
+groupTitle groups (Just gid) = title
     where groupId group = head [x | KGID x <- group]
           groupAssoc = zip (map groupId groups) groups
           kgroup = case lookup gid groupAssoc of Just x -> x
-          title = head [x | KGTitle x <- kgroup]
+          title = safeHead [x | KGTitle x <- kgroup]

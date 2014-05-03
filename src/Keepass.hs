@@ -19,17 +19,17 @@ data KMeta = KMeta deriving (Show)
 data KDBUnlocked = KDBUnlocked KMeta [KGroup] [KEntry] deriving (Show)
 
 type KEntry = [KEntryLine]
-data KEntryLine = KEGroupId Int
-                | KETitle String
-                | KEUrl String
-                | KEUsername String
-                | KEPassword String
-                | KEComment String
-                deriving (Show)
+data KEntryLine =
+    KEGroupId Int
+    | KETitle String
+    | KEUrl String
+    | KEUsername String
+    | KEPassword String
+    | KEComment String
+    deriving (Show)
 
 type KGroup = [KGroupLine]
-data KGroupLine = KGID Int
-                | KGTitle String deriving (Show)
+data KGroupLine = KGID Int | KGTitle String deriving (Show)
 
 type KDBLength = Int
 type KBody = BS.ByteString
@@ -89,16 +89,17 @@ readMagicNumber :: BG.Get (Word32, Word32)
 readMagicNumber = liftM2 (,) BG.getWord32le BG.getWord32le
 
 readHeader :: BG.Get KHeader
-readHeader = KHeader <$>
-             BG.getWord32le <*> -- flags
-             BG.getWord32le <*> -- ver
-             BG.getByteString 16 <*> -- seed_rand
-             BG.getByteString 16 <*> -- enc_iv
-             BG.getWord32le <*> -- n_groups
-             BG.getWord32le <*> -- n_entries
-             BG.getByteString 32 <*> -- checksum
-             BG.getByteString 32 <*> -- seed_key
-             BG.getWord32le -- seed_rot_n
+readHeader =
+    KHeader <$>
+    BG.getWord32le <*> -- flags
+    BG.getWord32le <*> -- ver
+    BG.getByteString 16 <*> -- seed_rand
+    BG.getByteString 16 <*> -- enc_iv
+    BG.getWord32le <*> -- n_groups
+    BG.getWord32le <*> -- n_entries
+    BG.getByteString 32 <*> -- checksum
+    BG.getByteString 32 <*> -- seed_key
+    BG.getWord32le -- seed_rot_n
 
 -- decoding
 decode :: KDBLocked -> KPassword -> Either String KDBUnlocked
@@ -128,30 +129,28 @@ parse kheader body = do
     let (groups, body') = BG.runGet (parseGroups ngroups) body
     let (entries, _) = BG.runGet (parseEntries nentries) body'
 
-    groups' <- groups
-    entries' <- entries
-    return $ KDBUnlocked KMeta groups' entries'
+    KDBUnlocked KMeta <$>  groups <*> entries
 
 parseGroups :: Int -> BG.Get [KGroup]
 parseGroups ngroups = parseGroups' ngroups []
 
 getLineData :: BG.Get (Word16, Word32, BS.ByteString)
 getLineData = do
-        ktype <- BG.getWord16le
-        size <- BG.getWord32le
-        kint <- if size > 4 then BG.lookAhead BG.getWord32le else return 0
-        kdata <- BG.getByteString $ fromIntegral size
-        return (ktype, kint, kdata)
+    ktype <- BG.getWord16le
+    size <- BG.getWord32le
+    kint <- if size > 4 then BG.lookAhead BG.getWord32le else return 0
+    kdata <- BG.getByteString $ fromIntegral size
+    return (ktype, kint, kdata)
 
 parseGroups' :: Int -> [KGroupLine] -> BG.Get [KGroup]
 parseGroups' 0 _ = return []
 parseGroups' ngroups group = do
-        (ktype, kint, kdata) <- getLineData
-        case ktype of
-            1 -> parseGroups' ngroups $ KGID (fromIntegral kint) : group
-            2 -> parseGroups' ngroups $ KGTitle (C8.unpack kdata) : group
-            0xffff -> (group:) <$> parseGroups (ngroups - 1)
-            _ -> parseGroups' ngroups group  -- skip
+    (ktype, kint, kdata) <- getLineData
+    case ktype of
+        1 -> parseGroups' ngroups $ KGID (fromIntegral kint) : group
+        2 -> parseGroups' ngroups $ KGTitle (C8.unpack kdata) : group
+        0xffff -> (group:) <$> parseGroups (ngroups - 1)
+        _ -> parseGroups' ngroups group  -- skip
 
 parseEntries :: Int -> BG.Get [KEntry]
 parseEntries ngroups = parseEntries' ngroups []
@@ -159,13 +158,13 @@ parseEntries ngroups = parseEntries' ngroups []
 parseEntries' :: Int -> [KEntryLine] -> BG.Get [KEntry]
 parseEntries' 0 _ = return []
 parseEntries' nentries entry =  do
-        (ktype, kint, kdata) <- getLineData
-        case ktype of
-            2 -> parseEntries' nentries $ KEGroupId (fromIntegral kint) : entry
-            4 -> parseEntries' nentries $ KETitle (C8.unpack kdata) : entry
-            5 -> parseEntries' nentries $ KEUrl (C8.unpack kdata) : entry
-            6 -> parseEntries' nentries $ KEUsername (C8.unpack kdata) : entry
-            7 -> parseEntries' nentries $ KEPassword (C8.unpack kdata) : entry
-            8 -> parseEntries' nentries $ KEComment (C8.unpack kdata) : entry
-            0xffff -> (entry:) <$> parseEntries (nentries - 1)
-            _ -> parseEntries' nentries entry -- skip
+    (ktype, kint, kdata) <- getLineData
+    case ktype of
+        2 -> parseEntries' nentries $ KEGroupId (fromIntegral kint) : entry
+        4 -> parseEntries' nentries $ KETitle (C8.unpack kdata) : entry
+        5 -> parseEntries' nentries $ KEUrl (C8.unpack kdata) : entry
+        6 -> parseEntries' nentries $ KEUsername (C8.unpack kdata) : entry
+        7 -> parseEntries' nentries $ KEPassword (C8.unpack kdata) : entry
+        8 -> parseEntries' nentries $ KEComment (C8.unpack kdata) : entry
+        0xffff -> (entry:) <$> parseEntries (nentries - 1)
+        _ -> parseEntries' nentries entry -- skip

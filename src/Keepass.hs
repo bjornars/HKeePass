@@ -5,6 +5,8 @@ import qualified Data.ByteString.Char8 as C8
 import qualified Data.Binary.Strict.Get as BG
 
 import Data.Bits
+import Data.Char
+import Data.List hiding (group)
 import Data.Word
 
 import Control.Applicative
@@ -168,3 +170,35 @@ parseEntries' nentries entry =  do
         8 -> parseEntries' nentries $ KEComment (C8.unpack kdata) : entry
         0xffff -> (entry:) <$> parseEntries (nentries - 1)
         _ -> parseEntries' nentries entry -- skip
+
+-- filtering
+entryContains :: KEntry -> String -> Bool
+_ `entryContains` "" = True
+entry `entryContains` s =  s' `isInfixOf` entry'
+    where entry' = lowercase $ show entry -- hack hack
+          s' = lowercase s
+          lowercase = map toLower
+
+-- this crap down here is a mess of partial functions
+displayEntry :: [KGroup] -> KEntry -> String
+displayEntry kgroups entry =
+    "Title:          " ++ title ++ "\n" ++
+    "Group:          " ++ groupTitle kgroups kgid  ++ "\n" ++
+    "URL:            " ++ url ++ "\n" ++
+    "Username:       " ++ username ++ "\n" ++
+    "Password:       " ++ password ++ "\n" ++
+    "Comment :       " ++ comment ++ "\n" ++
+    replicate 50 '-' ++ "\n"
+    where username = head [x | KEUsername x <- entry]
+          password = head [x | KEPassword x <- entry]
+          title = head [x | KETitle x <- entry]
+          url = head [x | KEUrl x <- entry]
+          comment = head [x | KEComment x <- entry]
+          kgid = head [x | KEGroupId x <- entry]
+
+groupTitle :: [[KGroupLine]] -> Int -> String
+groupTitle groups gid = title
+    where groupId group = head [x | KGID x <- group]
+          groupAssoc = zip (map groupId groups) groups
+          kgroup = case lookup gid groupAssoc of Just x -> x
+          title = head [x | KGTitle x <- kgroup]

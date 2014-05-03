@@ -44,7 +44,7 @@ search kdb = do
     search kdb
 
 showSearch :: String -> KDBUnlocked -> IO ()
-showSearch searchTerm (KDBUnlocked _  groups entries) = do
+showSearch searchTerm (KDBUnlocked groups entries) = do
     let matches = filter (`entryContains` searchTerm) entries
     forM_ matches (putStr . displayEntry groups)
 

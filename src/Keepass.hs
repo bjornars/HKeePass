@@ -17,8 +17,7 @@ import qualified Crypto.Hash.SHA256 as SHA
 
 type KPassword = String
 
-data KMeta = KMeta deriving (Show)
-data KDBUnlocked = KDBUnlocked KMeta [KGroup] [KEntry] deriving (Show)
+data KDBUnlocked = KDBUnlocked [KGroup] [KEntry] deriving (Show)
 
 type KEntry = [KEntryLine]
 data KEntryLine =
@@ -130,7 +129,7 @@ parse kheader body =
         nentries = fromIntegral $ getNEntries kheader
         (groups, body') = BG.runGet (parseGroups ngroups) body
         (entries, _) = BG.runGet (parseEntries nentries) body' in
-    KDBUnlocked KMeta <$>  groups <*> entries
+    KDBUnlocked <$>  groups <*> entries
 
 parseGroups :: Int -> BG.Get [KGroup]
 parseGroups ngroups = parseGroups' ngroups []

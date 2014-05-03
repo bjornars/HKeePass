@@ -5,14 +5,16 @@ import Keepass
 
 import Control.Monad
 import Control.Exception
+import System.Environment
 import System.IO
-
-file :: FilePath
-file = "test.kdb"
 
 main :: IO ()
 main = do
-    contents <- BS.readFile file
+    args <- getArgs
+    when (length args /= 1) $
+        fail "usage: hkeepass <filename>"
+
+    contents <- BS.readFile $ head args
     let db = loadKdb contents
     case db of
         (Left msg) -> putStrLn ("Error: " ++ msg)

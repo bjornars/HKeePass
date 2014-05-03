@@ -125,12 +125,11 @@ tafse kheader body password = unpad paddedBody
           unpad xs = BS.take (BS.length xs - fromIntegral (BS.last xs)) xs
 
 parse :: KHeader -> BS.ByteString -> Either String KDBUnlocked
-parse kheader body = do
+parse kheader body =
     let ngroups = fromIntegral $ getNGroups kheader
-    let nentries = fromIntegral $ getNEntries kheader
-    let (groups, body') = BG.runGet (parseGroups ngroups) body
-    let (entries, _) = BG.runGet (parseEntries nentries) body'
-
+        nentries = fromIntegral $ getNEntries kheader
+        (groups, body') = BG.runGet (parseGroups ngroups) body
+        (entries, _) = BG.runGet (parseEntries nentries) body' in
     KDBUnlocked KMeta <$>  groups <*> entries
 
 parseGroups :: Int -> BG.Get [KGroup]

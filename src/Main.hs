@@ -26,8 +26,7 @@ main = do
 
 unlockAndSearch :: KDBLocked -> IO ()
 unlockAndSearch kdb = do
-    putStrFlush "password: "
-    pw <- noEcho getLine
+    pw <- promptWith noEcho "password: "
 
     case decode kdb pw of
         (Left msg) -> putStrLn ("Error: " ++ msg) >> unlockAndSearch kdb
@@ -35,11 +34,9 @@ unlockAndSearch kdb = do
 
 search :: KDBUnlocked -> IO ()
 search kdb = do
-    putStrFlush "search> "
-    searchTerm <- getLine
+    searchTerm <- prompt "search> "
     showSearch searchTerm kdb
-    putStrFlush "done? "
-    getLine
+    _ <- prompt "done? "
     replicateM_ 50 (putStrLn "")
     search kdb
 
@@ -48,8 +45,11 @@ showSearch searchTerm (KDBUnlocked groups entries) = do
     let matches = filter (`entryContains` searchTerm) entries
     forM_ matches (putStr . displayEntry groups)
 
-putStrFlush :: String -> IO ()
-putStrFlush str = putStr str >> hFlush stdout
-
 noEcho :: IO a -> IO a
 noEcho = bracket_ (hSetEcho stdin False) (hSetEcho stdin True)
+
+promptWith :: (IO String -> IO String) -> String -> IO String
+promptWith f str = putStr str >> hFlush stdout >> f getLine
+
+prompt :: String -> IO String
+prompt = promptWith id

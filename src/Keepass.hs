@@ -209,9 +209,12 @@ resolveGroup kgroups entry = do
 addGroupName :: [KGroup] -> [KEntryLine] -> [KEntryLine]
 addGroupName kgroups entry =
     case resolveGroup kgroups entry of
-        (Just t) -> KEGroup t:entry
+        (Just t) -> KEGroup t : entry
         _        -> entry
 
 displayEntry :: [KGroup] -> KEntry -> String
 displayEntry kgroups entry =
-    concatMap showEntry (sort $ addGroupName kgroups entry) ++ replicate 50 '-' ++ "\n"
+        concatMap showEntry entry' ++ line
+    where
+        line = replicate 50 '-' ++ "\n"
+        entry' = sort $ addGroupName kgroups entry

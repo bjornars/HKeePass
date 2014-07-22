@@ -22,12 +22,28 @@ data KDBUnlocked = KDBUnlocked [KGroup] [KEntry] deriving (Show)
 type KEntry = [KEntryLine]
 data KEntryLine =
     KEGroupId Int
+    | KEGroup String
     | KETitle String
     | KEUrl String
     | KEUsername String
     | KEPassword String
     | KEComment String
-    deriving (Show)
+    deriving (Show, Ord, Eq)
+
+
+showEntry :: KEntryLine -> String
+showEntry line = case line of
+    (KETitle s) -> showLine "Title" s
+    (KEUrl s) -> showLine "URL" s
+    (KEUsername s) -> showLine "Username" s
+    (KEPassword s) -> showLine "Password" s
+    (KEComment s) -> showLine "Comment" s
+    (KEGroup s) -> showLine "Group" s
+    (KEGroupId _) -> ""
+    where
+        showLine label content = pad 20 label ++ content ++ "\n"
+        pad n label = take n $ label ++ ":" ++ replicate n ' '
+
 
 type KGroup = [KGroupLine]
 data KGroupLine = KGID Int | KGTitle String deriving (Show)
@@ -142,7 +158,7 @@ getLineData = do
     kdata <- BG.getByteString $ fromIntegral size
     return (ktype, kint, kdata)
 
-parseGroups' :: Int -> [KGroupLine] -> BG.Get [KGroup]
+parseGroups' :: Int -> KGroup -> BG.Get [KGroup]
 parseGroups' 0 _ = return []
 parseGroups' ngroups group = do
     (ktype, kint, kdata) <- getLineData
@@ -181,33 +197,21 @@ safeHead :: [a] -> Maybe a
 safeHead [] = Nothing
 safeHead (x:_) = Just x
 
-showLine :: (String, Maybe String) -> String
-showLine (_, Nothing) = ""
-showLine (label, Just content) = pad 20 label ++ content ++ "\n"
+resolveGroup :: [KGroup] -> [KEntryLine] -> Maybe String
+resolveGroup kgroups entry = do
+    let groupId group = safeHead [x | KGID x <- group]
+    let groupAssoc = zip (map groupId kgroups) kgroups
+    let groupAssoc' = [(gid, group)| (Just gid, group) <- groupAssoc]
+    gid <- safeHead [x | KEGroupId x <- entry]
+    kgroup <- lookup gid groupAssoc'
+    safeHead [x | KGTitle x <- kgroup]
 
-pad :: Int -> String -> String
-pad n label = take n $ label ++ ":" ++ replicate n ' '
+addGroupName :: [KGroup] -> [KEntryLine] -> [KEntryLine]
+addGroupName kgroups entry =
+    case resolveGroup kgroups entry of
+        (Just t) -> KEGroup t:entry
+        _        -> entry
 
 displayEntry :: [KGroup] -> KEntry -> String
 displayEntry kgroups entry =
-    concatMap showLine entries ++ replicate 50 '-' ++ "\n"
-    where username = safeHead [x | KEUsername x <- entry]
-          password = safeHead [x | KEPassword x <- entry]
-          title = safeHead [x | KETitle x <- entry]
-          url = safeHead [x | KEUrl x <- entry]
-          comment = safeHead [x | KEComment x <- entry]
-          kgid = safeHead [x | KEGroupId x <- entry]
-          entries = [("Title", title),
-                     ("Group", groupTitle kgroups kgid),
-                     ("URL", url),
-                     ("Username", username),
-                     ("Password", password),
-                     ("Comment", comment)]
-
-groupTitle :: [[KGroupLine]] -> Maybe Int -> Maybe String
-groupTitle _      Nothing    = Nothing
-groupTitle groups (Just gid) = title
-    where groupId group = head [x | KGID x <- group]
-          groupAssoc = zip (map groupId groups) groups
-          kgroup = case lookup gid groupAssoc of Just x -> x
-          title = safeHead [x | KGTitle x <- kgroup]
+    concatMap showEntry (sort $ addGroupName kgroups entry) ++ replicate 50 '-' ++ "\n"

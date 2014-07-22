@@ -18,11 +18,9 @@ main = do
     let db = loadKdb contents
     case db of
         (Left msg) -> putStrLn ("Error: " ++ msg)
-        (Right kdb) ->
-            case kdb of
-                (KDBLocked len _ _) -> do
-                 putStrLn $ "read " ++ show len ++ " bytes"
-                 unlockAndSearch kdb
+        (Right kdb@(KDBLocked len _ _)) -> do
+             putStrLn $ "read " ++ show len ++ " bytes"
+             unlockAndSearch kdb
 
 unlockAndSearch :: KDBLocked -> IO ()
 unlockAndSearch kdb = do
@@ -36,9 +34,10 @@ search :: KDBUnlocked -> IO ()
 search kdb = do
     searchTerm <- prompt "search> "
     showSearch searchTerm kdb
-    _ <- prompt "done? "
-    replicateM_ 50 (putStrLn "")
-    search kdb
+    done  <- prompt "done? "
+    case done of
+        ('q':_) -> return ()
+        _       -> replicateM_ 50 (putStrLn "") >> search kdb
 
 showSearch :: String -> KDBUnlocked -> IO ()
 showSearch searchTerm (KDBUnlocked groups entries) = do

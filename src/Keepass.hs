@@ -209,6 +209,9 @@ entry `entryContains` s =  s' `isInfixOf` entry'
           s' = lowercase s
           lowercase = map toLower
 
+isMetaEntry :: KEntry -> Bool
+isMetaEntry entry = or [True | KETitle "Meta-Info\000" <- entry]
+
 displayEntry :: [KGroup] -> KEntry -> String
 displayEntry kgroups entry =
         concatMap (showEntry kgroups) (sort entry) ++ line

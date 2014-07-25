@@ -3,6 +3,7 @@ module Main where
 import qualified Data.ByteString as BS
 import Keepass
 
+import Control.Applicative (liftA2)
 import Control.Monad
 import Control.Exception
 import System.Environment
@@ -43,7 +44,10 @@ search kdb = do
 
 showSearch :: String -> KDBUnlocked -> IO ()
 showSearch searchTerm (KDBUnlocked groups entries) = do
-    let matches = filter (`entryContains` searchTerm) entries
+    let matches = filter (liftA2 (&&)
+                    (not.isMetaEntry)
+                    (`entryContains` searchTerm))
+                  entries
     forM_ matches (putStr . displayEntry groups)
 
 noEcho :: IO a -> IO a

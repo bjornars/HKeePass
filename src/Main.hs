@@ -17,9 +17,9 @@ main = do
     contents <- BS.readFile $ head args
     let db = loadKdb contents
     case db of
-        (Left msg) -> putStrLn ("Error: " ++ msg)
-        (Right kdb@(KDBLocked len _ _)) -> do
-             putStrLn $ "read " ++ show len ++ " bytes"
+        (Left msg) -> putStrLn ("loadKdb error: " ++ msg)
+        (Right kdb) -> do
+             putStrLn $ "read " ++ show (kdbLength kdb) ++ " bytes"
              unlockAndSearch kdb
 
 unlockAndSearch :: KDBLocked -> IO ()
@@ -27,8 +27,10 @@ unlockAndSearch kdb = do
     pw <- promptWith noEcho "password: "
 
     case decode kdb pw of
-        (Left msg) -> putStrLn ("Error: " ++ msg) >> unlockAndSearch kdb
-        (Right kdb') -> putStrLn "\ndecoding successful" >> search kdb'
+        (Left msg) -> putStrLn ("decode error: " ++ msg)
+                      >> unlockAndSearch kdb
+        (Right kdb') -> putStrLn "\ndecoding successful"
+                      >> search kdb'
 
 search :: KDBUnlocked -> IO ()
 search kdb = do

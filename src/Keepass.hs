@@ -50,7 +50,11 @@ data KGroupLine = KGID Int | KGTitle String deriving (Show)
 
 type KDBLength = Int
 type KBody = BS.ByteString
-data KDBLocked = KDBLocked KDBLength KHeader KBody deriving (Show)
+data KDBLocked = KDBLocked {
+    kdbLength :: KDBLength
+  , kdbHeader :: KHeader
+  , kdbBody :: KBody
+} deriving (Show)
 
 data KHeader = KHeader {
     getFlags :: Word32

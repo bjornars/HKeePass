@@ -1,4 +1,16 @@
-module Keepass where
+module Keepass (
+    KEntryLine(..)
+  , KGroupLine(..)
+  , KEntry
+  , KGroup
+  , KDBLocked
+  , kdbLength
+  , KDBUnlocked(..)
+
+  , parseEntries
+  , loadKdb
+  , decode
+) where
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as C8
@@ -35,8 +47,8 @@ type KDBLength = Int
 type KBody = BS.ByteString
 data KDBLocked = KDBLocked {
     kdbLength :: KDBLength
-  , kdbHeader :: KHeader
-  , kdbBody :: KBody
+  , _kdbHeader :: KHeader
+  , _kdbBody :: KBody
 } deriving (Show)
 
 data KHeader = KHeader {
@@ -61,10 +73,10 @@ loadKdb content = do
 kdbHeaderSize :: Int
 kdbHeaderSize = 124
 
-kdbSig1, kdbSig2v1, kdbSig2v2, kdbVerDw, kdbFlagRijndael :: Word32
+kdbSig1, kdbSig2v1, _kdbSig2v2, kdbVerDw, kdbFlagRijndael :: Word32
 kdbSig1   = 0x9AA2D903
 kdbSig2v1 = 0xB54BFB65
-kdbSig2v2 = 0xB54BFB67
+_kdbSig2v2 = 0xB54BFB67
 kdbVerDw  = 0x00030002
 kdbFlagRijndael  = 2
 

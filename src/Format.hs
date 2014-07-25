@@ -1,4 +1,8 @@
-module Format where
+module Format (
+    displayEntry
+  , isMetaEntry
+  , entryContains
+) where
 
 import Keepass
 

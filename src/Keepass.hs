@@ -6,7 +6,7 @@ import qualified Data.Binary.Strict.Get as BG
 
 import Data.Bits
 import Data.Char
-import Data.Maybe (listToMaybe, mapMaybe)
+import Data.Maybe (listToMaybe, mapMaybe, fromMaybe)
 import Data.List hiding (group)
 import Data.Word
 
@@ -170,9 +170,9 @@ getLineData :: BG.Get (Word16, Word32, BS.ByteString)
 getLineData = do
     ktype <- BG.getWord16le
     size <- BG.getWord32le
-    kint <- if size >= 4 then BG.lookAhead BG.getWord32le else return 0
+    kint <- optional $ BG.lookAhead BG.getWord32le
     kdata <- BG.getByteString $ fromIntegral size
-    return (ktype, kint, kdata)
+    return (ktype, fromMaybe (-1) kint, kdata)
 
 parseGroups' :: Int -> KGroup -> BG.Get [KGroup]
 parseGroups' 0 _ = return []

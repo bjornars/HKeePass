@@ -1,14 +1,14 @@
 module Main (main) where
 
-import qualified Data.ByteString as BS
-import Keepass
-import Format
+import Keepass ( KDBUnlocked(..), KDBLocked(..), loadKdb, decode )
+import Format ( entryContains, isMetaEntry, displayEntry )
 
-import Control.Applicative (liftA2)
-import Control.Monad
-import Control.Exception
-import System.Environment
-import System.IO
+import Data.ByteString as BS ( readFile )
+import Control.Applicative ( liftA2 )
+import Control.Monad ( when, replicateM_, forM_ )
+import Control.Exception ( bracket_ )
+import System.Environment ( getArgs )
+import System.IO ( stdout, stdin, hSetEcho, hFlush )
 
 main :: IO ()
 main = do

@@ -4,11 +4,12 @@ module Format (
   , entryContains
 ) where
 
-import Keepass
+import Keepass ( KGroupLine(..), KGroup, KEntryLine(..), KEntry )
 
-import Data.Char
-import Data.Maybe (listToMaybe, mapMaybe)
-import Data.List
+import Data.Char ( toLower )
+import Data.Maybe ( listToMaybe, mapMaybe )
+import Data.List ( sort, isInfixOf )
+
 
 showEntry :: [KGroup] -> KEntryLine -> String
 showEntry kgroups line = case line of

@@ -13,18 +13,20 @@ module Keepass (
 ) where
 
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as C8
+    ( ByteString, take, splitAt, length, last, append )
+import qualified Data.ByteString.Char8 as C8 ( unpack, pack )
 import qualified Data.Binary.Strict.Get as BG
+    ( Get, runGet, lookAhead, getWord32le, getWord16le, getByteString )
 
-import Data.Bits
-import Data.Word
+import Data.Bits ( Bits(..) )
+import Data.Word ( Word16, Word32 )
+import Data.Maybe ( fromMaybe )
+import Control.Applicative ( Applicative(..), (<$>), optional )
+import Control.Monad ( when, unless, liftM2 )
 
-import Data.Maybe (fromMaybe)
-import Control.Applicative
-import Control.Monad
+import qualified Crypto.Cipher.AES as AES ( initAES, encryptECB, decryptCBC )
+import qualified Crypto.Hash.SHA256 as SHA ( hash )
 
-import qualified Crypto.Cipher.AES as AES
-import qualified Crypto.Hash.SHA256 as SHA
 
 type KPassword = String
 

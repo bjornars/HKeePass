@@ -2,6 +2,7 @@ module Main where
 
 import qualified Data.ByteString as BS
 import Keepass
+import Format
 
 import Control.Applicative (liftA2)
 import Control.Monad

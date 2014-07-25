@@ -5,11 +5,9 @@ import qualified Data.ByteString.Char8 as C8
 import qualified Data.Binary.Strict.Get as BG
 
 import Data.Bits
-import Data.Char
-import Data.Maybe (listToMaybe, mapMaybe, fromMaybe)
-import Data.List hiding (group)
 import Data.Word
 
+import Data.Maybe (fromMaybe)
 import Control.Applicative
 import Control.Monad
 
@@ -30,35 +28,8 @@ data KEntryLine =
     | KEComment String
     deriving (Show, Ord, Eq)
 
-
-showEntry :: [KGroup] -> KEntryLine -> String
-showEntry kgroups line = case line of
-    (KETitle s) -> showLine "Title" s
-    (KEUrl s) -> showLine "URL" s
-    (KEUsername s) -> showLine "Username" s
-    (KEPassword s) -> showLine "Password" s
-    (KEComment s) -> showLine "Comment" s
-    (KEGroupId g) -> showLine "Group" $ groupNameFromId g
-    where
-        showLine label content = pad 20 label ++ content ++ "\n"
-        pad n label = take n $ label ++ ":" ++ replicate n ' '
-        titleForGroupId gid = map snd
-            $ filter ((==gid).fst)
-            $ mapMaybe groupTuple kgroups
-
-        groupNameFromId gid = last $ "N/A" : titleForGroupId gid
-
-
 type KGroup = [KGroupLine]
 data KGroupLine = KGID Int | KGTitle String deriving (Show)
-
-
-groupTuple :: [KGroupLine] -> Maybe (Int, String)
-groupTuple kgroup = do
-    gid <- listToMaybe [x | KGID x <- kgroup]
-    title <- listToMaybe [x | KGTitle x <- kgroup]
-    return (gid, title)
-
 
 type KDBLength = Int
 type KBody = BS.ByteString
@@ -200,20 +171,3 @@ parseEntries' nentries entry =  do
         8 -> parseEntries' nentries $ KEComment (C8.unpack kdata) : entry
         0xffff -> (entry:) <$> parseEntries (nentries - 1)
         _ -> parseEntries' nentries entry -- skip
-
--- filtering
-entryContains :: KEntry -> String -> Bool
-_ `entryContains` "" = True
-entry `entryContains` s =  s' `isInfixOf` entry'
-    where entry' = lowercase $ show entry -- hack hack
-          s' = lowercase s
-          lowercase = map toLower
-
-isMetaEntry :: KEntry -> Bool
-isMetaEntry entry = or [True | KETitle "Meta-Info\000" <- entry]
-
-displayEntry :: [KGroup] -> KEntry -> String
-displayEntry kgroups entry =
-        concatMap (showEntry kgroups) (sort entry) ++ line
-    where
-        line = replicate 50 '-' ++ "\n"

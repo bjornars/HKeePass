@@ -6,6 +6,7 @@ import qualified Data.Binary.Strict.Get as BG
 
 import Data.Bits
 import Data.Char
+import Data.Maybe (listToMaybe, mapMaybe)
 import Data.List hiding (group)
 import Data.Word
 
@@ -22,7 +23,6 @@ data KDBUnlocked = KDBUnlocked [KGroup] [KEntry] deriving (Show)
 type KEntry = [KEntryLine]
 data KEntryLine =
     KEGroupId Int
-    | KEGroup String
     | KETitle String
     | KEUrl String
     | KEUsername String
@@ -31,22 +31,34 @@ data KEntryLine =
     deriving (Show, Ord, Eq)
 
 
-showEntry :: KEntryLine -> String
-showEntry line = case line of
+showEntry :: [KGroup] -> KEntryLine -> String
+showEntry kgroups line = case line of
     (KETitle s) -> showLine "Title" s
     (KEUrl s) -> showLine "URL" s
     (KEUsername s) -> showLine "Username" s
     (KEPassword s) -> showLine "Password" s
     (KEComment s) -> showLine "Comment" s
-    (KEGroup s) -> showLine "Group" s
-    (KEGroupId _) -> ""
+    (KEGroupId g) -> showLine "Group" $ groupNameFromId g
     where
         showLine label content = pad 20 label ++ content ++ "\n"
         pad n label = take n $ label ++ ":" ++ replicate n ' '
+        titleForGroupId gid = map snd
+            $ filter ((==gid).fst)
+            $ mapMaybe groupTuple kgroups
+
+        groupNameFromId gid = last $ "N/A" : titleForGroupId gid
 
 
 type KGroup = [KGroupLine]
 data KGroupLine = KGID Int | KGTitle String deriving (Show)
+
+
+groupTuple :: [KGroupLine] -> Maybe (Int, String)
+groupTuple kgroup = do
+    gid <- listToMaybe [x | KGID x <- kgroup]
+    title <- listToMaybe [x | KGTitle x <- kgroup]
+    return (gid, title)
+
 
 type KDBLength = Int
 type KBody = BS.ByteString
@@ -197,28 +209,8 @@ entry `entryContains` s =  s' `isInfixOf` entry'
           s' = lowercase s
           lowercase = map toLower
 
-safeHead :: [a] -> Maybe a
-safeHead [] = Nothing
-safeHead (x:_) = Just x
-
-resolveGroup :: [KGroup] -> [KEntryLine] -> Maybe String
-resolveGroup kgroups entry = do
-    let groupId group = safeHead [x | KGID x <- group]
-    let groupAssoc = zip (map groupId kgroups) kgroups
-    let groupAssoc' = [(gid, group)| (Just gid, group) <- groupAssoc]
-    gid <- safeHead [x | KEGroupId x <- entry]
-    kgroup <- lookup gid groupAssoc'
-    safeHead [x | KGTitle x <- kgroup]
-
-addGroupName :: [KGroup] -> [KEntryLine] -> [KEntryLine]
-addGroupName kgroups entry =
-    case resolveGroup kgroups entry of
-        (Just t) -> KEGroup t : entry
-        _        -> entry
-
 displayEntry :: [KGroup] -> KEntry -> String
 displayEntry kgroups entry =
-        concatMap showEntry entry' ++ line
+        concatMap (showEntry kgroups) (sort entry) ++ line
     where
         line = replicate 50 '-' ++ "\n"
-        entry' = sort $ addGroupName kgroups entry
